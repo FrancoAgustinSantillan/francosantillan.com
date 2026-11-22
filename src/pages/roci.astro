@@ -1,7 +1,9 @@
 ---
 import Base from '../layouts/Base.astro';
 import {
-  zona,
+  zonas,
+  zonaDe,
+  LIMITE_A_PIE,
   trabajo,
   lineas,
   estaciones,
@@ -15,23 +17,26 @@ import {
   type Estacion,
 } from '../data/roci';
 
-const cercanasZona = estacionesCercanas(zona.centro, 4);
+const resumenZonas = zonas.map((z) => ({ ...z, cercanas: estacionesCercanas(z.centro, 3) }));
 const lista = deptos
-  .map((d, i) => ({ ...d, n: i + 1, cercanas: estacionesCercanas(d, 2) }))
+  .map((d, i) => ({ ...d, n: i + 1, cercanas: estacionesCercanas(d, 2), ...zonaDe(d) }))
   .sort((a, b) => (a.estado === 'descartado' ? 1 : 0) - (b.estado === 'descartado' ? 1 : 0) || a.cercanas[0].metros - b.cercanas[0].metros);
 
 const badges = (e: Estacion) => e.lineas.map((l) => ({ l, ...lineas[l] }));
+const aPie = (m: number) => (m <= LIMITE_A_PIE ? `~${minutosCaminando(m)} min a pie` : 'lejos para caminar');
+const aPieCorto = (m: number) => (m <= LIMITE_A_PIE ? `~${minutosCaminando(m)} min` : 'lejos');
+const ruta = (d: { lat: number; lon: number }, e: Estacion & { metros: number }) => (e.metros <= LIMITE_A_PIE ? linkCaminando(d, e) : linkTransporte(d, e));
+const etiquetaZona = (d: { dentro: boolean; zona: { nombre: string } }) => (d.dentro ? d.zona.nombre : `Cerca de ${d.zona.nombre}`);
 
 const mapa = {
-  centro: zona.centro,
-  bbox: zona.bbox,
+  zonas: zonas.map((z) => ({ nombre: z.nombre, bbox: z.bbox })),
   trabajo,
   lineas,
   estaciones,
   deptos: deptos.map((d, i) => ({ ...d, n: i + 1 })),
 };
 ---
-<Base title="Roomie en CDMX" description="Búsqueda de roomie para Roci en Lomas de Sotelo, Ciudad de México." noindex>
+<Base title="Roomie en CDMX" description="Búsqueda de roomie para Roci en Lomas de Sotelo, Granada y Ciudad Satélite." noindex>
   <Fragment slot="head">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
   </Fragment>
@@ -39,35 +44,43 @@ const mapa = {
   <header class="page-head">
     <h1>Roomie en CDMX 🏠</h1>
     <p class="tagline">
-      Opciones para Roci en <strong>Lomas de Sotelo</strong> (Miguel Hidalgo), con la distancia de cada una al Metro.
+      Opciones para Roci en <strong>Lomas de Sotelo</strong>, <strong>Granada</strong> y <strong>Ciudad Satélite</strong>, con la distancia de cada una al Metro.
       La vamos completando a medida que aparezcan lugares.
     </p>
   </header>
 
-  <div id="mapa" class="mapa" aria-label="Mapa de la zona con estaciones de Metro"></div>
+  <div id="mapa" class="mapa" aria-label="Mapa de las zonas con estaciones de Metro"></div>
   <p class="leyenda">
     <span><i class="dot" style={`background:${lineas[2].color}`}></i>Metro Línea 2</span>
+    <span><i class="dot" style={`background:${lineas[6].color}`}></i>Metro Línea 6</span>
     <span><i class="dot" style={`background:${lineas[7].color}`}></i>Metro Línea 7</span>
     <span><i class="dot dot-depto"></i>Depto</span>
-    <span><i class="zona-sw"></i>Lomas de Sotelo</span>
+    <span><i class="zona-sw"></i>Zonas de búsqueda</span>
   </p>
 
   <section>
-    <h2>Metro más cercano a la zona</h2>
-    <p class="muted small">Desde el centro de la colonia. Cada depto tiene su propio cálculo más abajo.</p>
-    <ul class="estaciones">
-      {cercanasZona.map((e) => (
-        <li>
-          <span class="est-nombre">
-            {badges(e).map((b) => <span class="linea" style={`background:${b.color}`} title={b.nombre}>{b.l}</span>)}
-            {e.nombre}
-          </span>
-          <span class="est-dist">
-            {formatoDistancia(e.metros)} · ~{minutosCaminando(e.metros)} min a pie
-          </span>
-        </li>
+    <h2>Las zonas</h2>
+    <p class="muted small">Metro más cercano desde el centro de cada zona. Cada depto tiene su propio cálculo más abajo.</p>
+    <div class="zonas">
+      {resumenZonas.map((z) => (
+        <div class="zona">
+          <h3>{z.nombre}</h3>
+          <p class="muted small">{z.donde}</p>
+          <ul class="estaciones">
+            {z.cercanas.map((e) => (
+              <li>
+                <span class="est-nombre">
+                  {badges(e).map((b) => <span class="linea" style={`background:${b.color}`} title={b.nombre}>{b.l}</span>)}
+                  {e.nombre}
+                </span>
+                <span class="est-dist">{formatoDistancia(e.metros)} · {aPie(e.metros)}</span>
+              </li>
+            ))}
+          </ul>
+          {z.nota && <p class="zona-nota">⚠️ {z.nota}</p>}
+        </div>
       ))}
-    </ul>
+    </div>
   </section>
 
   <section>
@@ -87,6 +100,7 @@ const mapa = {
                 {d.estado && <span class={`estado estado-${d.estado.replace(' ', '-')}`}>{d.estado}</span>}
               </div>
               <p class="dir">{d.direccion}</p>
+              <p class="zona-tag">📍 {etiquetaZona(d)}</p>
               {d.precio && <p class="precio">{d.precio}</p>}
               <ul class="metro">
                 {d.cercanas.map((e) => (
@@ -96,8 +110,8 @@ const mapa = {
                       {e.nombre}
                     </span>
                     <span class="est-dist">
-                      {formatoDistancia(e.metros)} · ~{minutosCaminando(e.metros)} min
-                      · <a href={linkCaminando(d, e)} target="_blank" rel="noopener">ruta</a>
+                      {formatoDistancia(e.metros)} · {aPieCorto(e.metros)}
+                      · <a href={ruta(d, e)} target="_blank" rel="noopener">ruta</a>
                     </span>
                   </li>
                 ))}
@@ -128,24 +142,26 @@ const mapa = {
 
   <p class="muted small nota-calc">
     Las distancias se miden en línea recta hasta la estación. Los minutos a pie son un estimado (suman ~30 % por las calles, a paso normal).
-    Para la ruta exacta, usá el link <em>ruta</em>, que abre Google Maps.
+    Para la ruta exacta, usá el link <em>ruta</em>, que abre Google Maps (a pie si queda cerca, en transporte público si no).
   </p>
 
   <script is:inline src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script is:inline define:vars={{ mapa }}>
     const L = window.L;
-    const map = L.map('mapa', { scrollWheelZoom: false }).setView([mapa.centro.lat, mapa.centro.lon], 15);
+    const map = L.map('mapa', { scrollWheelZoom: false });
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(map);
 
-    const [s, n, w, e] = mapa.bbox;
-    L.rectangle([[s, w], [n, e]], { color: '#2f5bd3', weight: 2, dashArray: '6 4', fillOpacity: 0.06 })
-      .addTo(map)
-      .bindTooltip('Lomas de Sotelo');
-
-    const puntos = [[s, w], [n, e]];
+    const puntos = [];
+    for (const z of mapa.zonas) {
+      const [s, n, w, e] = z.bbox;
+      L.rectangle([[s, w], [n, e]], { color: '#2f5bd3', weight: 2, dashArray: '6 4', fillOpacity: 0.06 })
+        .addTo(map)
+        .bindTooltip(z.nombre, { permanent: true, direction: 'center', className: 'zona-label' });
+      puntos.push([s, w], [n, e]);
+    }
     for (const est of mapa.estaciones) {
       const color = mapa.lineas[est.lineas[0]].color;
       const m = L.circleMarker([est.lat, est.lon], {
@@ -170,10 +186,8 @@ const mapa = {
         .bindPopup(`<strong>Trabajo</strong><br>${mapa.trabajo.direccion}`);
       puntos.push([mapa.trabajo.lat, mapa.trabajo.lon]);
     }
-    // Encuadrar la zona y la estación más cercana (Cuatro Caminos) o todo lo cargado.
-    const cc = mapa.estaciones[0];
-    puntos.push([cc.lat, cc.lon]);
-    map.fitBounds(puntos, { padding: [30, 30], maxZoom: 16 });
+    // Encuadrar todas las zonas y lo que esté cargado.
+    map.fitBounds(puntos, { padding: [20, 20], maxZoom: 16 });
   </script>
 </Base>
 
@@ -182,9 +196,21 @@ const mapa = {
   .leyenda { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.85rem; color: var(--muted); margin: 10px 0 0; }
   .leyenda span { display: inline-flex; align-items: center; gap: 6px; }
   .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); }
-  .dot-depto { background: #e5484d; }
+  .dot-depto { background: #7c3aed; }
   .zona-sw { width: 16px; height: 11px; border: 2px dashed #2f5bd3; display: inline-block; border-radius: 2px; }
   .small { font-size: 0.9rem; }
+  .zonas { display: grid; gap: 12px; margin-top: 12px; }
+  .zona { padding: 14px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  .zona h3 { margin: 0; font-size: 1.05rem; }
+  .zona > p { margin: 2px 0 6px; }
+  .zona .estaciones li:last-child { border-bottom: 0; }
+  .zona-nota { font-size: 0.9rem; color: var(--amber); margin: 8px 0 0 !important; }
+  .zona-tag { font-size: 0.9rem; }
+  :global(.zona-label) {
+    background: rgba(255, 255, 255, 0.85); border: 0; box-shadow: none; color: #2f5bd3;
+    font: 600 11px/1.2 system-ui, sans-serif; padding: 2px 5px;
+  }
+  :global(.zona-label::before) { display: none; }
 
   .estaciones li, .metro li {
     display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
@@ -209,7 +235,7 @@ const mapa = {
   .depto h3 { margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
   .num {
     display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
-    background: #e5484d; color: #fff; font-size: 0.8rem; flex-shrink: 0;
+    background: #7c3aed; color: #fff; font-size: 0.8rem; flex-shrink: 0;
   }
   .depto p { margin: 6px 0 0; }
   .dir { color: var(--muted); }
@@ -217,7 +243,7 @@ const mapa = {
   .metro { margin-top: 10px; }
   .notas { font-size: 0.95rem; }
   .estado { font-size: 0.72rem; font-weight: 600; padding: 1px 8px; border-radius: 99px; border: 1px solid currentColor; white-space: nowrap; color: var(--muted); }
-  .estado-favorito { color: #e5484d; }
+  .estado-favorito { color: #7c3aed; }
   .estado-visitado, .estado-contactado { color: var(--green); }
   .estado-por-ver { color: var(--accent); }
   .nota-calc { margin-top: 48px; }
@@ -226,6 +252,6 @@ const mapa = {
     display: grid; place-items: center; border-radius: 50%; font: 700 13px/1 system-ui, sans-serif;
     border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
   }
-  :global(.pin-depto) { background: #e5484d; color: #fff; }
+  :global(.pin-depto) { background: #7c3aed; color: #fff; }
   :global(.pin-trabajo) { background: #fff; font-size: 15px; }
 </style>
