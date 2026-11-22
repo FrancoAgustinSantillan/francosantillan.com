@@ -1,24 +1,42 @@
 // Datos de la página /roci (búsqueda de cuarto con roomies en CDMX y Naucalpan).
-// Un agente diario agrega deptos acá vía PR (se publican solos). Para sumar uno a mano, agregá un objeto a `deptos`. Las coordenadas (lat, lon) se pueden
-// sacar de Google Maps: clic derecho sobre el lugar → copiar las coordenadas.
+//
+// Los deptos NO están acá: están en roci-deptos.json (solo datos). Un agente diario los agrega
+// vía PR y se publican solos, así que ese archivo se valida estrictamente al compilar: si algo
+// no cumple el formato, la web no compila y no se publica nada.
+// Para sumar uno a mano: agregá un objeto en roci-deptos.json. Coordenadas: en Google Maps,
+// clic derecho sobre el lugar → copiar las coordenadas.
+
+import { z } from 'astro/zod';
+import deptosJson from './roci-deptos.json';
 
 export type Punto = { lat: number; lon: number };
 
-export type Depto = Punto & {
-  titulo: string; // ej. "Cuarto en depto compartido, 2 roomies"
-  direccion: string;
-  precio?: string; // ej. "$7,500 MXN/mes"
-  link?: string; // anuncio original
-  notas?: string;
-  estado?: 'por ver' | 'contactado' | 'visitado' | 'descartado' | 'favorito';
-  // Requisitos de Roci: true = cumple, false = no cumple, sin poner = no se sabe.
-  amueblada?: boolean;
-  servicios?: boolean; // luz, agua e internet incluidos
-  soloMujeres?: boolean;
-  banoPropio?: boolean;
-  fuente?: string; // dónde salió (ej. "CompartoDepto", "Facebook")
-  encontrado?: string; // fecha en que se encontró, AAAA-MM-DD
-};
+// Texto plano: sin < ni > (nada de HTML) y con largo acotado.
+const texto = (max: number) =>
+  z.string().trim().min(1).max(max).regex(/^[^<>]*$/, 'No se permite HTML');
+
+const DeptoSchema = z
+  .object({
+    titulo: texto(120), // ej. "Cuarto en depto compartido, 2 roomies"
+    direccion: texto(200),
+    // Siempre dentro del área metropolitana de CDMX.
+    lat: z.number().min(19.2).max(19.8),
+    lon: z.number().min(-99.5).max(-98.9),
+    precio: texto(40).optional(), // ej. "$7,500 MXN/mes"
+    link: z.string().max(500).regex(/^https:\/\/[^\s"'<>]+$/, 'Solo links https').optional(),
+    notas: texto(500).optional(),
+    estado: z.enum(['por ver', 'contactado', 'visitado', 'descartado', 'favorito']).optional(),
+    // Requisitos de Roci: true = cumple, false = no cumple, sin poner = no se sabe.
+    amueblada: z.boolean().optional(),
+    servicios: z.boolean().optional(), // luz, agua e internet incluidos
+    soloMujeres: z.boolean().optional(),
+    banoPropio: z.boolean().optional(),
+    fuente: texto(60).optional(), // dónde salió (ej. "CompartoDepto", "Facebook")
+    encontrado: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), // AAAA-MM-DD
+  })
+  .strict(); // campos desconocidos = error
+
+export type Depto = z.infer<typeof DeptoSchema>;
 
 export type Linea = 2 | 6 | 7;
 export type Estacion = Punto & { nombre: string; lineas: Linea[] };
@@ -105,17 +123,7 @@ export const estaciones: Estacion[] = [
   { nombre: 'El Rosario', lineas: [6, 7], lat: 19.504675, lon: -99.199932 },
 ];
 
-export const deptos: Depto[] = [
-  // {
-  //   titulo: 'Cuarto en depto compartido',
-  //   direccion: 'Calle ..., Lomas de Sotelo, Miguel Hidalgo, CDMX',
-  //   lat: 19.45, lon: -99.215,
-  //   precio: '$7,500 MXN/mes',
-  //   link: 'https://...',
-  //   notas: 'Incluye servicios. 2 roomies.',
-  //   estado: 'por ver',
-  // },
-];
+export const deptos: Depto[] = z.array(DeptoSchema).max(300).parse(deptosJson);
 
 // ---- Cálculos ----
 

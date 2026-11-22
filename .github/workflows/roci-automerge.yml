@@ -1,7 +1,7 @@
 name: Publicar búsqueda de Roci
 
 # Los PRs que abre el agente diario (ramas roci/busqueda-*) se publican solos
-# si solo tocan src/data/roci.ts y la web compila. Si algo falla, el PR queda abierto.
+# si solo tocan src/data/roci-deptos.json y la web compila. Si algo falla, el PR queda abierto.
 
 on:
   pull_request:
@@ -21,13 +21,14 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Verificar que solo cambia src/data/roci.ts
+      - name: Verificar que solo cambia src/data/roci-deptos.json
         run: |
           cambios=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
           echo "$cambios"
-          if [ "$cambios" != "src/data/roci.ts" ]; then
-            echo "::error::El PR toca otros archivos además de src/data/roci.ts; queda para revisión manual."
+          if [ "$cambios" != "src/data/roci-deptos.json" ]; then
+            echo "::error::El PR toca otros archivos además de src/data/roci-deptos.json; queda para revisión manual."
             exit 1
           fi
 

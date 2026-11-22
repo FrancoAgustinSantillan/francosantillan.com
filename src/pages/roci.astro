@@ -57,7 +57,13 @@ const mapa = {
 ---
 <Base title="Cuarto con roomies" description="Búsqueda de cuarto con roomies para Roci en CDMX y Naucalpan." noindex>
   <Fragment slot="head">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
+      integrity="sha384-c6Rcwz4e4CITMbu/NBmnNS8yN2sC3cUElMEMfP3vqqKFp7GOYaaBBCqmaWBjmkjb"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
   </Fragment>
 
   <header class="page-head">
@@ -122,6 +128,7 @@ const mapa = {
 
   <section>
     <h2>Deptos y cuartos</h2>
+    <p class="aviso">⚠️ Antes de pagar cualquier depósito o anticipo, visitá el lugar y conocé a las roomies. Si piden dinero sin dejarte ver el cuarto, es estafa.</p>
     {lista.length === 0 ? (
       <div class="vacio">
         <p><strong>Todavía no hay domicilios cargados.</strong></p>
@@ -185,7 +192,12 @@ const mapa = {
     Para la ruta exacta, usá el link <em>ruta</em>, que abre Google Maps (a pie si queda cerca, en transporte público si no).
   </p>
 
-  <script is:inline src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script
+    is:inline
+    src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
+    integrity="sha384-NElt3Op+9NBMCYaef5HxeJmU4Xeard/Lku8ek6hoPTvYkQPh3zLIrJP7KiRocsxO"
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"></script>
   <script is:inline define:vars={{ mapa }}>
     const L = window.L;
     const map = L.map('mapa', { scrollWheelZoom: false });
@@ -213,17 +225,28 @@ const mapa = {
       m.bindTooltip(`Metro ${est.nombre} (L${est.lineas.join(', L')})`);
     }
 
+    // Los textos de los anuncios se insertan como texto, nunca como HTML.
+    const popup = (titulo, lineas) => {
+      const el = document.createElement('div');
+      const t = document.createElement('strong');
+      t.textContent = titulo;
+      el.append(t);
+      for (const l of lineas.filter(Boolean)) {
+        el.append(document.createElement('br'), document.createTextNode(l));
+      }
+      return el;
+    };
     const pin = (html, cls) => L.divIcon({ html, className: cls, iconSize: [28, 28], iconAnchor: [14, 14] });
     for (const d of mapa.deptos) {
       L.marker([d.lat, d.lon], { icon: pin(String(d.n), 'pin-depto') })
         .addTo(map)
-        .bindPopup(`<strong>${d.n}. ${d.titulo}</strong><br>${d.direccion}${d.precio ? '<br>' + d.precio : ''}`);
+        .bindPopup(popup(`${d.n}. ${d.titulo}`, [d.direccion, d.precio]));
       puntos.push([d.lat, d.lon]);
     }
     if (mapa.trabajo) {
       L.marker([mapa.trabajo.lat, mapa.trabajo.lon], { icon: pin('💼', 'pin-trabajo') })
         .addTo(map)
-        .bindPopup(`<strong>Trabajo</strong><br>${mapa.trabajo.direccion}`);
+        .bindPopup(popup('Trabajo', [mapa.trabajo.direccion]));
       puntos.push([mapa.trabajo.lat, mapa.trabajo.lon]);
     }
     // Encuadrar todas las zonas y lo que esté cargado.
@@ -278,6 +301,7 @@ const mapa = {
     color: #fff; font-size: 0.72rem; font-weight: 700;
   }
 
+  .aviso { font-size: 0.9rem; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--amber); color: var(--fg); margin: 0 0 14px; }
   .vacio { padding: 20px; border: 1px dashed var(--line); border-radius: 12px; }
   .vacio p { margin: 0 0 6px; }
 
