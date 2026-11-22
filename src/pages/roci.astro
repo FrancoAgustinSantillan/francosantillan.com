@@ -3,6 +3,7 @@ import Base from '../layouts/Base.astro';
 import {
   zonas,
   zonaDe,
+  busqueda,
   LIMITE_A_PIE,
   trabajo,
   lineas,
@@ -17,10 +18,28 @@ import {
   type Estacion,
 } from '../data/roci';
 
-const resumenZonas = zonas.map((z) => ({ ...z, cercanas: estacionesCercanas(z.centro, 3) }));
+const alTrabajo = (p: { lat: number; lon: number }) => (trabajo ? distancia(p, trabajo) : 0);
+const resumenZonas = zonas
+  .map((z) => ({ ...z, cercanas: estacionesCercanas(z.centro, 3), trabajoM: alTrabajo(z.centro) }))
+  .sort((a, b) => a.trabajoM - b.trabajoM);
+// Orden: descartados al final; el resto, lo más cerca del trabajo primero (o del Metro si no hay trabajo).
 const lista = deptos
-  .map((d, i) => ({ ...d, n: i + 1, cercanas: estacionesCercanas(d, 2), ...zonaDe(d) }))
-  .sort((a, b) => (a.estado === 'descartado' ? 1 : 0) - (b.estado === 'descartado' ? 1 : 0) || a.cercanas[0].metros - b.cercanas[0].metros);
+  .map((d, i) => ({ ...d, n: i + 1, cercanas: estacionesCercanas(d, 2), trabajoM: alTrabajo(d), ...zonaDe(d) }))
+  .sort(
+    (a, b) =>
+      (a.estado === 'descartado' ? 1 : 0) - (b.estado === 'descartado' ? 1 : 0) ||
+      (trabajo ? a.trabajoM - b.trabajoM : a.cercanas[0].metros - b.cercanas[0].metros),
+  );
+
+const requisitos = (d: (typeof deptos)[number]) => [
+  { label: 'Amueblada', v: d.amueblada },
+  { label: 'Servicios incluidos', v: d.servicios },
+  { label: 'Solo mujeres', v: d.soloMujeres },
+  { label: 'Baño propio', v: d.banoPropio, opcional: true },
+];
+const icono = (v: boolean | undefined) => (v === true ? '✓' : v === false ? '✗' : '?');
+const claseReq = (v: boolean | undefined, opcional?: boolean) =>
+  v === true ? 'req req-si' : v === false ? (opcional ? 'req req-no-opc' : 'req req-no') : 'req req-nose';
 
 const badges = (e: Estacion) => e.lineas.map((l) => ({ l, ...lineas[l] }));
 const aPie = (m: number) => (m <= LIMITE_A_PIE ? `~${minutosCaminando(m)} min a pie` : 'lejos para caminar');
@@ -36,18 +55,32 @@ const mapa = {
   deptos: deptos.map((d, i) => ({ ...d, n: i + 1 })),
 };
 ---
-<Base title="Roomie en CDMX" description="Búsqueda de roomie para Roci en Lomas de Sotelo, Granada y Ciudad Satélite." noindex>
+<Base title="Cuarto con roomies" description="Búsqueda de cuarto con roomies para Roci en CDMX y Naucalpan." noindex>
   <Fragment slot="head">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
   </Fragment>
 
   <header class="page-head">
-    <h1>Roomie en CDMX 🏠</h1>
+    <h1>Cuarto con roomies 🏠</h1>
     <p class="tagline">
-      Opciones para Roci en <strong>Lomas de Sotelo</strong>, <strong>Granada</strong> y <strong>Ciudad Satélite</strong>, con la distancia de cada una al Metro.
+      Opciones para Roci cerca de su trabajo en Naucalpan, con la distancia de cada una al trabajo y al Metro.
       La vamos completando a medida que aparezcan lugares.
     </p>
   </header>
+
+  <section class="busqueda">
+    <h2>Qué busca</h2>
+    <dl>
+      <div><dt>Tipo</dt><dd>{busqueda.tipo}</dd></div>
+      <div><dt>Presupuesto</dt><dd>{busqueda.presupuesto}</dd></div>
+      <div><dt>Zonas</dt><dd>{busqueda.zonas}</dd></div>
+      <div><dt>Indispensable</dt><dd>{busqueda.indispensable.join(' · ')}</dd></div>
+      <div><dt>Preferible</dt><dd>{busqueda.preferible.join(' · ')}</dd></div>
+      <div><dt>Le da igual</dt><dd>{busqueda.indiferente.join(' · ')}</dd></div>
+      <div><dt>Desde</dt><dd>{busqueda.desde}</dd></div>
+      <div><dt>Plazo</dt><dd>{busqueda.plazo}</dd></div>
+    </dl>
+  </section>
 
   <div id="mapa" class="mapa" aria-label="Mapa de las zonas con estaciones de Metro"></div>
   <p class="leyenda">
@@ -56,15 +89,19 @@ const mapa = {
     <span><i class="dot" style={`background:${lineas[7].color}`}></i>Metro Línea 7</span>
     <span><i class="dot dot-depto"></i>Depto</span>
     <span><i class="zona-sw"></i>Zonas de búsqueda</span>
+    {trabajo && <span>💼 Trabajo (aprox.)</span>}
   </p>
 
   <section>
     <h2>Las zonas</h2>
-    <p class="muted small">Metro más cercano desde el centro de cada zona. Cada depto tiene su propio cálculo más abajo.</p>
+    <p class="muted small">Ordenadas de la más cercana a la más lejana del trabajo. Distancias desde el centro de cada zona; cada depto tiene su propio cálculo más abajo.</p>
     <div class="zonas">
       {resumenZonas.map((z) => (
         <div class="zona">
-          <h3>{z.nombre}</h3>
+          <div class="zona-head">
+            <h3>{z.nombre}</h3>
+            {trabajo && <span class="zona-trabajo">💼 {formatoDistancia(z.trabajoM)} del trabajo</span>}
+          </div>
           <p class="muted small">{z.donde}</p>
           <ul class="estaciones">
             {z.cercanas.map((e) => (
@@ -102,6 +139,9 @@ const mapa = {
               <p class="dir">{d.direccion}</p>
               <p class="zona-tag">📍 {etiquetaZona(d)}</p>
               {d.precio && <p class="precio">{d.precio}</p>}
+              <ul class="reqs">
+                {requisitos(d).map((r) => <li class={claseReq(r.v, r.opcional)}>{icono(r.v)} {r.label}</li>)}
+              </ul>
               <ul class="metro">
                 {d.cercanas.map((e) => (
                   <li>
@@ -118,12 +158,12 @@ const mapa = {
               </ul>
               {trabajo && (
                 <p class="trabajo-dist">
-                  💼 Al trabajo: {formatoDistancia(distancia(d, trabajo))} en línea recta ·{' '}
+                  💼 Al trabajo: {formatoDistancia(d.trabajoM)} en línea recta ·{' '}
                   <a href={linkTransporte(d, trabajo)} target="_blank" rel="noopener">cómo llegar</a>
                 </p>
               )}
               {d.notas && <p class="notas">{d.notas}</p>}
-              {d.link && <p><a href={d.link} target="_blank" rel="noopener">Ver anuncio →</a></p>}
+              {d.link && <p><a href={d.link} target="_blank" rel="noopener">Ver anuncio →</a>{d.fuente && <span class="muted small"> · {d.fuente}</span>}</p>}
             </article>
           );
         })}
@@ -134,9 +174,9 @@ const mapa = {
   <section>
     <h2>Trabajo</h2>
     {trabajo ? (
-      <p>💼 {trabajo.direccion}</p>
+      <p>💼 {trabajo.direccion}. <span class="muted">En el mapa está marcado de forma aproximada.</span></p>
     ) : (
-      <p class="muted">Todavía no tenemos la dirección del trabajo. Cuando la sepamos, cada depto va a mostrar también cuánto tarda en llegar.</p>
+      <p class="muted">Todavía no tenemos la dirección del trabajo.</p>
     )}
   </section>
 
@@ -192,13 +232,26 @@ const mapa = {
 </Base>
 
 <style>
-  .mapa { height: 380px; border-radius: 12px; border: 1px solid var(--line); z-index: 0; }
+  .mapa { margin-top: 40px; height: 380px; border-radius: 12px; border: 1px solid var(--line); z-index: 0; }
   .leyenda { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.85rem; color: var(--muted); margin: 10px 0 0; }
   .leyenda span { display: inline-flex; align-items: center; gap: 6px; }
   .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); }
   .dot-depto { background: #7c3aed; }
   .zona-sw { width: 16px; height: 11px; border: 2px dashed #2f5bd3; display: inline-block; border-radius: 2px; }
   .small { font-size: 0.9rem; }
+  .busqueda dl { display: grid; gap: 6px; margin: 0; padding: 16px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  .busqueda dl div { display: grid; grid-template-columns: 120px 1fr; gap: 12px; }
+  .busqueda dt { color: var(--muted); }
+  .busqueda dd { margin: 0; }
+  @media (max-width: 480px) { .busqueda dl div { grid-template-columns: 1fr; gap: 0; } }
+  .zona-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .zona-trabajo { font-size: 0.9rem; font-weight: 600; }
+  .reqs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .req { font-size: 0.78rem; padding: 2px 8px; border-radius: 99px; border: 1px solid; }
+  .req-si { color: var(--green); }
+  .req-no { color: #d6001c; }
+  .req-no-opc { color: var(--muted); }
+  .req-nose { color: var(--muted); border-style: dashed; }
   .zonas { display: grid; gap: 12px; margin-top: 12px; }
   .zona { padding: 14px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
   .zona h3 { margin: 0; font-size: 1.05rem; }

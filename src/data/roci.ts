@@ -1,4 +1,4 @@
-// Datos de la página /roci (búsqueda de roomie en CDMX y Satélite).
+// Datos de la página /roci (búsqueda de cuarto con roomies en CDMX y Naucalpan).
 // Para sumar un depto, agregá un objeto a `deptos`. Las coordenadas (lat, lon) se pueden
 // sacar de Google Maps: clic derecho sobre el lugar → copiar las coordenadas.
 
@@ -11,6 +11,13 @@ export type Depto = Punto & {
   link?: string; // anuncio original
   notas?: string;
   estado?: 'por ver' | 'contactado' | 'visitado' | 'descartado' | 'favorito';
+  // Requisitos de Roci: true = cumple, false = no cumple, sin poner = no se sabe.
+  amueblada?: boolean;
+  servicios?: boolean; // luz, agua e internet incluidos
+  soloMujeres?: boolean;
+  banoPropio?: boolean;
+  fuente?: string; // dónde salió (ej. "CompartoDepto", "Facebook")
+  encontrado?: string; // fecha en que se encontró, AAAA-MM-DD
 };
 
 export type Linea = 2 | 6 | 7;
@@ -45,10 +52,35 @@ export const zonas: Zona[] = [
     bbox: [19.49717, 19.52249, -99.2518, -99.21757],
     nota: 'No tiene Metro cerca: se llega a El Rosario o a Cuatro Caminos en camión o combi.',
   },
+  {
+    nombre: 'Lomas Verdes',
+    donde: 'Naucalpan, Estado de México',
+    centro: { lat: 19.51587, lon: -99.26605 },
+    // OSM no tiene el límite de la colonia: es un área aproximada alrededor del centro.
+    bbox: [19.5039, 19.5279, -99.2786, -99.2536],
+    nota: 'Sin Metro cerca: se mueve en camión o auto.',
+  },
 ];
 
-// Dirección del trabajo de Roci: completar cuando la tengamos.
-export const trabajo: (Punto & { direccion: string }) | null = null;
+// Qué busca Roci (respuestas del 21/11/2026).
+export const busqueda = {
+  tipo: 'Habitación en un depto ya compartido (no depto entero)',
+  presupuesto: '$7,000 a $7,500 MXN/mes como máximo',
+  indispensable: ['Amueblada', 'Servicios incluidos (luz, agua e internet)', 'Roomies únicamente mujeres'],
+  preferible: ['Baño propio (no excluyente)'],
+  indiferente: ['Mascotas', 'Estacionamiento (no lo necesita)'],
+  zonas: 'Lomas de Sotelo, Granada, Satélite, Lomas Verdes u otra zona de Naucalpan que le quede cómoda para el trabajo',
+  desde: 'Lo antes posible',
+  plazo: 'Mínimo 3 meses, con posibilidad de extender',
+};
+
+// Trabajo de Roci. A propósito NO va la dirección exacta (la página y el repo son públicos):
+// el punto es aproximado, alcanza para calcular distancias.
+export const trabajo: (Punto & { direccion: string }) | null = {
+  direccion: 'Naucalpan Centro, Estado de México',
+  lat: 19.467,
+  lon: -99.24,
+};
 
 export const lineas = {
   2: { nombre: 'Línea 2', color: '#0072bc' },
