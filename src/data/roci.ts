@@ -1,5 +1,5 @@
 // Datos de la página /roci (búsqueda de cuarto con roomies en CDMX y Naucalpan).
-// Para sumar un depto, agregá un objeto a `deptos`. Las coordenadas (lat, lon) se pueden
+// Un agente diario agrega deptos acá vía PR (se publican solos). Para sumar uno a mano, agregá un objeto a `deptos`. Las coordenadas (lat, lon) se pueden
 // sacar de Google Maps: clic derecho sobre el lugar → copiar las coordenadas.
 
 export type Punto = { lat: number; lon: number };
