@@ -1,0 +1,50 @@
+name: Publicar búsqueda de Roci
+
+# Los PRs que abre el agente diario (ramas roci/busqueda-*) se publican solos
+# si solo tocan src/data/roci.ts y la web compila. Si algo falla, el PR queda abierto.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  automerge:
+    if: startsWith(github.head_ref, 'roci/busqueda-') && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Verificar que solo cambia src/data/roci.ts
+        run: |
+          cambios=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          echo "$cambios"
+          if [ "$cambios" != "src/data/roci.ts" ]; then
+            echo "::error::El PR toca otros archivos además de src/data/roci.ts; queda para revisión manual."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      - name: Aceptar el PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch --repo ${{ github.repository }}
+
+      # Un merge hecho con GITHUB_TOKEN no dispara otros workflows, así que se publica a mano.
+      - name: Publicar la web
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run deploy.yml --ref main --repo ${{ github.repository }}
