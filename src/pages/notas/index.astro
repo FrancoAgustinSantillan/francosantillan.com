@@ -1,0 +1,14 @@
+---
+import Base from '../../layouts/Base.astro';
+import NotaList from '../../components/NotaList.astro';
+import { getNotas } from '../../lib';
+
+const notas = await getNotas();
+---
+<Base title="Notas" description="Avances de proyectos, ideas sueltas y cosas que vale la pena leer.">
+  <header class="page-head">
+    <h1>Notas</h1>
+    <p class="tagline">Avances de proyectos, ideas sueltas y cosas que vale la pena leer.</p>
+  </header>
+  <NotaList notas={notas} />
+</Base>

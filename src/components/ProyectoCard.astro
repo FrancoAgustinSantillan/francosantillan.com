@@ -1,0 +1,18 @@
+---
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  proyecto: CollectionEntry<'proyectos'>;
+}
+const { proyecto } = Astro.props;
+const { title, description, status, stack, draft } = proyecto.data;
+---
+<a class="card" href={`/proyectos/${proyecto.id}/`}>
+  <div class="card-head">
+    <h3>{title}</h3>
+    <span class={`status status-${status.replace(' ', '-')}`}>{status}</span>
+  </div>
+  <p>{description}</p>
+  {stack.length > 0 && <p class="stack">{stack.join(' · ')}</p>}
+  {draft && <span class="tag tag-draft">borrador</span>}
+</a>

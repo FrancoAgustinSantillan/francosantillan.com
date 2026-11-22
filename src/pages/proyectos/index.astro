@@ -1,0 +1,16 @@
+---
+import Base from '../../layouts/Base.astro';
+import ProyectoCard from '../../components/ProyectoCard.astro';
+import { getProyectos } from '../../lib';
+
+const proyectos = await getProyectos();
+---
+<Base title="Proyectos" description="Cosas que construí o estoy construyendo.">
+  <header class="page-head">
+    <h1>Proyectos</h1>
+    <p class="tagline">Cosas que construí o estoy construyendo.</p>
+  </header>
+  <div class="cards">
+    {proyectos.map((p) => <ProyectoCard proyecto={p} />)}
+  </div>
+</Base>

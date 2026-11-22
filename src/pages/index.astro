@@ -1,0 +1,35 @@
+---
+import Base from '../layouts/Base.astro';
+import NotaList from '../components/NotaList.astro';
+import ProyectoCard from '../components/ProyectoCard.astro';
+import { SITE, getNotas, getProyectos } from '../lib';
+
+const proyectos = await getProyectos();
+const destacados = proyectos.filter((p) => p.data.featured);
+const mostrar = (destacados.length ? destacados : proyectos).slice(0, 4);
+const notas = (await getNotas()).slice(0, 5);
+---
+<Base>
+  <header class="hero">
+    <h1>Hola, soy Franco.</h1>
+    <p class="tagline">{SITE.tagline}</p>
+  </header>
+
+  <section>
+    <div class="section-head">
+      <h2>Proyectos</h2>
+      <a href="/proyectos/">Ver todos →</a>
+    </div>
+    <div class="cards">
+      {mostrar.map((p) => <ProyectoCard proyecto={p} />)}
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Últimas notas</h2>
+      <a href="/notas/">Ver todas →</a>
+    </div>
+    <NotaList notas={notas} />
+  </section>
+</Base>

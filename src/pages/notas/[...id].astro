@@ -1,0 +1,33 @@
+---
+import { getEntry, render, type CollectionEntry } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { formatDate, getNotas } from '../../lib';
+
+export async function getStaticPaths() {
+  const notas = await getNotas();
+  return notas.map((nota) => ({ params: { id: nota.id }, props: { nota } }));
+}
+
+const { nota } = Astro.props as { nota: CollectionEntry<'notas'> };
+const { title, date, tipo, url, tags } = nota.data;
+const proyecto = nota.data.project ? await getEntry(nota.data.project) : undefined;
+const { Content } = await render(nota);
+---
+<Base title={title}>
+  <a class="back" href="/notas/">← Notas</a>
+  <article>
+    <h1>{title}</h1>
+    <p class="meta">
+      <time datetime={date.toISOString()}>{formatDate(date)}</time>
+      {tipo !== 'nota' && <span class={`tag tag-${tipo}`}>{tipo}</span>}
+      {proyecto && <>· <a href={`/proyectos/${proyecto.id}/`}>{proyecto.data.title}</a></>}
+    </p>
+    {url && (
+      <p class="link-box">🔗 <a href={url}>{new URL(url).hostname.replace(/^www\./, '')}</a></p>
+    )}
+    <div class="prose">
+      <Content />
+    </div>
+    {tags.length > 0 && <p class="muted tags">{tags.map((t) => `#${t}`).join(' ')}</p>}
+  </article>
+</Base>

@@ -1,0 +1,25 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { formatDate } from '../lib';
+
+interface Props {
+  notas: CollectionEntry<'notas'>[];
+}
+const { notas } = Astro.props;
+---
+{notas.length === 0 ? (
+  <p class="muted">Todavía no hay nada publicado acá.</p>
+) : (
+  <ul class="posts">
+    {notas.map((n) => (
+      <li>
+        <time datetime={n.data.date.toISOString()}>{formatDate(n.data.date)}</time>
+        <span class="post-title">
+          <a href={`/notas/${n.id}/`}>{n.data.title}</a>
+          {n.data.tipo !== 'nota' && <span class={`tag tag-${n.data.tipo}`}>{n.data.tipo}</span>}
+          {n.data.draft && <span class="tag tag-draft">borrador</span>}
+        </span>
+      </li>
+    ))}
+  </ul>
+)}

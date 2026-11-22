@@ -1,0 +1,42 @@
+---
+import { render, type CollectionEntry } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import NotaList from '../../components/NotaList.astro';
+import { formatDate, getNotas, getProyectos } from '../../lib';
+
+export async function getStaticPaths() {
+  const proyectos = await getProyectos();
+  return proyectos.map((proyecto) => ({ params: { id: proyecto.id }, props: { proyecto } }));
+}
+
+const { proyecto } = Astro.props as { proyecto: CollectionEntry<'proyectos'> };
+const { title, description, status, started, stack, repo, demo } = proyecto.data;
+const { Content } = await render(proyecto);
+const diario = (await getNotas()).filter((n) => n.data.project?.id === proyecto.id);
+---
+<Base title={title} description={description}>
+  <a class="back" href="/proyectos/">← Proyectos</a>
+  <article>
+    <h1>{title}</h1>
+    <p class="tagline">{description}</p>
+    <dl class="facts">
+      <div><dt>Estado</dt><dd><span class={`status status-${status.replace(' ', '-')}`}>{status}</span></dd></div>
+      <div><dt>Desde</dt><dd>{formatDate(started)}</dd></div>
+      {stack.length > 0 && <div><dt>Stack</dt><dd>{stack.join(' · ')}</dd></div>}
+      {(repo || demo) && (
+        <div><dt>Links</dt><dd class="links">
+          {demo && <a href={demo}>Ver online</a>}
+          {repo && <a href={repo}>Código</a>}
+        </dd></div>
+      )}
+    </dl>
+    <div class="prose">
+      <Content />
+    </div>
+  </article>
+
+  <section>
+    <h2>Diario del proyecto</h2>
+    <NotaList notas={diario} />
+  </section>
+</Base>
